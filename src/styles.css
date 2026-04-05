@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  :root {
+    --lux-ivory: #f7f4ee;
+    --lux-paper: #fffdf9;
+    --lux-ink: #111111;
+    --lux-graphite: #22252b;
+    --lux-line: rgba(17, 17, 17, 0.1);
+    --lux-sand: #efe5db;
+    --lux-taupe: #c8b3a0;
+    --lux-amber: #c2892b;
+    --lux-gold: #c4a56a;
+    --lux-blush: #c27c74;
+    --lux-denim: #93a9c2;
+    --lux-olive: #6f7861;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    margin: 0;
+  }
+
+  body {
+    @apply bg-brand-paper font-sans text-brand-ink antialiased;
+    font-family: Inter, "SF Pro Display", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    color-scheme: light;
+  }
+
+  button,
+  input,
+  textarea {
+    font: inherit;
+  }
+
+  textarea {
+    resize: none;
+  }
+}
+
+@layer utilities {
+  .shadow-soft {
+    box-shadow: 0 18px 40px rgba(36, 41, 38, 0.08);
+  }
+
+  .shadow-editorial {
+    box-shadow: 0 24px 60px rgba(17, 17, 17, 0.12);
+  }
+
+  .animate-reveal-up {
+    animation: revealUp 0.7s ease both;
+  }
+
+  .animate-float-slow {
+    animation: floatSlow 10s ease-in-out infinite;
+  }
+
+  .animate-float-delayed {
+    animation: floatSlow 12s ease-in-out 1.8s infinite;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes floatSlow {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
