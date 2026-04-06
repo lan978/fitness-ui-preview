@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Bot,
   Calendar,
@@ -24,8 +24,10 @@ const WEEK_DAYS = [
 ];
 
 const TOP_CARDS = [
-  { eyebrow: "Today's training", value: "12", suffix: "min" },
-  { eyebrow: "Weight", value: "72.4", suffix: "kg", actionLabel: "Update" }
+  { eyebrow: "Today's training", value: "12", suffix: "min", meta: "Today" },
+  { eyebrow: "Weight", value: "72.4", suffix: "kg", actionLabel: "Update", meta: "Latest" },
+  { eyebrow: "Bench PR", value: "95", suffix: "kg", actionLabel: "Update", meta: "1RM" },
+  { eyebrow: "Squat PR", value: "130", suffix: "kg", actionLabel: "Update", meta: "1RM" }
 ];
 
 const INITIAL_NUTRITION_METRICS = [
@@ -249,6 +251,14 @@ function formatMetricValue(value) {
 }
 
 export default function App() {
+  const topMetricTrackRef = useRef(null);
+  const topMetricDragRef = useRef({
+    active: false,
+    startX: 0,
+    scrollLeft: 0,
+    targetScrollLeft: 0,
+    rafId: 0
+  });
   const [selectedDay, setSelectedDay] = useState(3);
   const [activeView, setActiveView] = useState("schedule");
   const [nutritionMetrics, setNutritionMetrics] = useState(INITIAL_NUTRITION_METRICS);
@@ -259,6 +269,70 @@ export default function App() {
 
   const calorieRemaining = Math.max(calorieSummary.target - calorieSummary.consumed, 0);
   const mealTotals = calculateMealTotals(mealEntries);
+
+  function handleTopMetricPointerDown(event) {
+    const track = topMetricTrackRef.current;
+
+    if (!track || event.pointerType !== "mouse" || event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    topMetricDragRef.current = {
+      active: true,
+      startX: event.clientX,
+      scrollLeft: track.scrollLeft,
+      targetScrollLeft: track.scrollLeft,
+      rafId: 0
+    };
+    track.style.scrollSnapType = "none";
+    track.setPointerCapture?.(event.pointerId);
+  }
+
+  function handleTopMetricPointerMove(event) {
+    const track = topMetricTrackRef.current;
+    const drag = topMetricDragRef.current;
+
+    if (!track || !drag.active) {
+      return;
+    }
+
+    event.preventDefault();
+    drag.targetScrollLeft = drag.scrollLeft - (event.clientX - drag.startX);
+
+    if (drag.rafId) {
+      return;
+    }
+
+    drag.rafId = window.requestAnimationFrame(() => {
+      track.scrollLeft = drag.targetScrollLeft;
+      drag.rafId = 0;
+    });
+  }
+
+  function handleTopMetricPointerEnd(event) {
+    const track = topMetricTrackRef.current;
+    const drag = topMetricDragRef.current;
+
+    if (!drag.active) {
+      return;
+    }
+
+    drag.active = false;
+
+    if (drag.rafId) {
+      window.cancelAnimationFrame(drag.rafId);
+      drag.rafId = 0;
+    }
+
+    if (track?.hasPointerCapture?.(event.pointerId)) {
+      track.releasePointerCapture(event.pointerId);
+    }
+
+    if (track) {
+      track.style.scrollSnapType = "none";
+    }
+  }
 
   function handleOpenMealLog() {
     setActiveView("mealLog");
@@ -362,13 +436,32 @@ export default function App() {
                   </div>
                 </header>
 
-                <section className="grid grid-cols-2 gap-1">
-                  {TOP_CARDS.map((item) => (
-                    <TopCard key={item.eyebrow} {...item} />
-                  ))}
+                <section className="relative -mx-1 overflow-hidden">
+                  <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-[#F5F2EC] to-transparent" />
+                  <div
+                    ref={topMetricTrackRef}
+                    onPointerDown={handleTopMetricPointerDown}
+                    onPointerMove={handleTopMetricPointerMove}
+                    onPointerUp={handleTopMetricPointerEnd}
+                    onPointerCancel={handleTopMetricPointerEnd}
+                    onPointerLeave={handleTopMetricPointerEnd}
+                    className="scrollbar-hide flex cursor-grab gap-2 overflow-x-auto px-1 pb-1 pr-8 active:cursor-grabbing"
+                    style={{
+                      overscrollBehaviorX: "contain",
+                      scrollSnapType: "none",
+                      WebkitOverflowScrolling: "touch",
+                      touchAction: "pan-x pan-y",
+                      transform: "translateZ(0)",
+                      willChange: "scroll-position"
+                    }}
+                  >
+                    {TOP_CARDS.map((item) => (
+                      <TopCard key={item.eyebrow} {...item} />
+                    ))}
+                  </div>
                 </section>
 
-                <section className="relative mt-4 overflow-hidden rounded-[26px] border border-white/90 bg-white/90 p-3.5 shadow-[0_20px_50px_rgba(28,30,38,0.08)] backdrop-blur">
+                <section className="relative mt-2.5 overflow-hidden rounded-[26px] border border-white/90 bg-white/90 p-3.5 shadow-[0_20px_50px_rgba(28,30,38,0.08)] backdrop-blur">
                   <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-bl-[48px] bg-gradient-to-bl from-[#F7F4EF] to-transparent opacity-90" />
                   <div className="relative z-10 mb-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
@@ -774,26 +867,33 @@ function FoodPicksScreen({ selectedCategory, onSelectCategory, onBack }) {
   );
 }
 
-function TopCard({ eyebrow, value, suffix, actionLabel }) {
+function TopCard({ eyebrow, value, suffix, actionLabel, meta }) {
   return (
-    <article className="min-h-[58px] rounded-[20px] border border-white/90 bg-white/88 px-3 py-1.5 shadow-[0_10px_30px_rgba(28,30,38,0.05)] backdrop-blur">
+    <article className="min-h-[70px] min-w-[166px] select-none snap-start rounded-[22px] border border-white/90 bg-white/88 px-3.5 py-2.5 shadow-[0_12px_30px_rgba(28,30,38,0.06)] backdrop-blur">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#A89A87]">
-          {eyebrow}
-        </p>
+        <div>
+          <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[#A89A87]">
+            {eyebrow}
+          </p>
+          {meta ? (
+            <span className="mt-1 inline-flex rounded-full bg-[#F3EEE6] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8F8374]">
+              {meta}
+            </span>
+          ) : null}
+        </div>
 
         {actionLabel ? (
           <button
             type="button"
-            className="rounded-full border border-[#E7E1D7] bg-[#F6F2EB] px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-[#7F786F]"
+            className="shrink-0 rounded-full border border-[#E7E1D7] bg-[#F6F2EB] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-[#7F786F]"
           >
             {actionLabel}
           </button>
         ) : null}
       </div>
 
-      <div className="mt-1.5 flex items-end gap-1">
-        <span className="text-[31px] font-semibold tracking-[-0.06em] text-[#1C1E26]">{value}</span>
+      <div className="mt-2 flex items-end gap-1">
+        <span className="text-[30px] font-semibold tracking-[-0.06em] text-[#1C1E26]">{value}</span>
         <span className="pb-0.5 text-[12px] font-medium text-[#6F6A63]">{suffix}</span>
       </div>
     </article>
